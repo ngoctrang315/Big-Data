@@ -1,0 +1,177 @@
+sudo passwd root
+su root
+
+1. OpenJDK
+apt update 
+apt install default-jdk 
+
+2. SSH
+apt-get install ssh 
+apt install openssh-server 
+
+vim /etc/ssh/sshd_config 
+
+bấm chữ i để edit file nè
+
+- Tìm đoạn # PubkeyAuthentication yes. Bỏ dấu # phía trước 
+- Tìm đoạn # PasswordAuthentication yes. Bỏ dấu # phía trước
+
+xong rùi thì ESC, : rùi nhập wq.
+
+service sshd restart
+
+3. Tạo user hadoop
+adduser hadoopngoctrang
+
+4. Cài đặt Hadoop 3.3.6
+su hadoopngoctrang
+cd
+cd /home/hadoopngoctrang
+wget https://dlcdn.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz 
+tar -xzf hadoop-3.3.6.tar.gz 
+mv hadoop-3.3.6 hadoop 
+
+5. Thiết lập Java_Home
+vim ~/hadoop/etc/hadoop/hadoop-env.sh
+
+bấm chữ i để edit file nè
+- Tìm đoạn #export JAVA_HOME= thêm này zo: /usr/lib/jvm/java-1.11.0-openjdk-amd64 
+
+rùi em ESC :wq 
+
+**Thiết lập singlenode cluster 
+6. Standalone Operation
+mkdir input 
+cp hadoop/etc/hadoop/*.xml input 
+hadoop/bin/hadoop jar hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.6.jar grep input output 'dfs[a-z.]+' 
+cat output/* 
+
+7. Pseudo
+7.1. Cài ssh key
+ssh-keygen -t rsa -P "" 
+Enter cái nữa
+cat /home/hadoopngoctrang/.ssh/id_rsa.pub >> /home/hadoopngoctrang/.ssh/authorized_keys  
+chmod 600 /home/hadoopngoctrang/.ssh/authorized_keys 
+
+7.2. Cấu hình core-site.xml
+vim ~/hadoop/etc/hadoop/core-site.xml 
+
+bấm chữ i để edit file nè
+tìm xún chỗ <configuration> đồ á em
+sửa thành zị
+<configuration> 
+    <property> 
+        <name>fs.defaultFS</name> 
+        <value>hdfs://localhost:9000</value> 
+    </property> 
+</configuration> 
+
+7.3. Cấu hình hdfs-site.xml
+vim ~/hadoop/etc/hadoop/hdfs-site.xml 
+bấm chữ i để edit file nè
+tìm xún chỗ <configuration> đồ á em
+sửa thành zị
+<configuration> 
+    <property> 
+        <name>dfs.replication</name> 
+        <value>1</value> 
+    </property> 
+</configuration> 
+
+7.4.
+hadoop/bin/hdfs namenode -format 
+
+7.5.
+hadoop/sbin/start-dfs.sh 
+jps
+~/hadoop/bin/hdfs dfsadmin -report 
+~/hadoop/bin/hdfs dfs -mkdir /user 
+~/hadoop/bin/hdfs dfs -mkdir /user/hadoopngoctrang 
+~/hadoop/bin/hdfs dfs -mkdir /user/hadoopngoctrang/input 
+~/hadoop/bin/hdfs dfs -put hadoop/etc/hadoop/*.xml /user/hadoopngoctrang/input 
+~/hadoop/bin/hadoop jar hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.6.jar grep input output 'dfs[a-z.]+'
+~/hadoop/bin/hdfs dfs -get output/ output 
+cat output/* 
+
+hadoop/sbin/stop-dfs.sh 
+
+
+7.6.
+vim ~/.bashrc 
+
+bấm chữ i để edit file nè
+xong em lướt xuống dưới cùng á rùi add mấy này:
+
+export JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64 
+export HADOOP_HOME=/home/hadoopngoctrang/hadoop 
+export PATH=$PATH:$HADOOP_HOME/bin
+export PATH=$PATH:$HADOOP_HOME/sbin 
+export HADOOP_MAPRED_HOME=$HADOOP_HOME 
+export HADOOP_COMMON_HOME=$HADOOP_HOME 
+export HADOOP_HDFS_HOME=$HADOOP_HOME 
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop 
+export HADOOP_YARN_HOME=$HADOOP_HOME 
+export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native 
+export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native" 
+
+7.7. 
+vim hadoop/etc/hadoop/mapred-site.xml 
+bấm chữ i để edit file nè
+tìm xún chỗ <configuration> đồ á em
+sửa thành zị
+
+<configuration> 
+    <property> 
+        <name>mapreduce.framework.name</name> 
+        <value>yarn</value> 
+    </property> 
+    <property> 
+        <name>mapreduce.application.classpath</name> 
+ 	<value>$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value> 
+    </property> 
+</configuration> 
+
+7.8.
+vim hadoop/etc/hadoop/yarn-site.xml
+bấm chữ i để edit file nè
+tìm xún chỗ <configuration> đồ á em
+sửa thành zị
+
+<configuration> 
+    <property> 
+        <name>yarn.nodemanager.aux-services</name> 
+        <value>mapreduce_shuffle</value> 
+    </property> 
+    <property> 
+	<name>yarn.nodemanager.env-whitelist</name> 
+	<value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value> 
+    </property> 
+</configuration> 
+
+7.9
+hadoop/sbin/start-dfs.sh 
+hadoop/sbin/start-yarn.sh 
+
+7.10..
+rm -rf output 
+~/hadoop/bin/hdfs dfs -rm -r /user 
+~/hadoop/bin/hdfs dfs -mkdir /user 
+~/hadoop/bin/hdfs dfs -mkdir /user/hadoopngoctrang
+~/hadoop/bin/hdfs dfs -mkdir /user/hadoopngoctrang/input
+~/hadoop/bin/hdfs dfs -put hadoop/etc/hadoop/*.xml /user/hadoopngoctrang/input 
+~/hadoop/bin/hadoop jar hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.6.jar grep input output 'dfs[a-z.]+'
+~/hadoop/bin/hdfs dfs -get output/ output 
+cat output/* 
+
+hadoop/sbin/stop-dfs.sh 
+hadoop/sbin/stop-yarn.sh 
+
+
+
+
+
+
+
+
+
+
